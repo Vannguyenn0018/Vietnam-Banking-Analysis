@@ -286,13 +286,13 @@ elif active_tab == "Deep Dive Dataset":
         return ''
 
     styled_df = heatmap_data.style\
-        .applymap(lambda x: color_risk(x, 'ROA'), subset=['ROA'])\
-        .applymap(lambda x: color_risk(x, 'NPL'), subset=['NPL_Ratio'])\
+        .map(lambda x: color_risk(x, 'ROA'), subset=['ROA'])\
+        .map(lambda x: color_risk(x, 'NPL'), subset=['NPL_Ratio'])\
         .format({
-            "ROA": "{:.2f}%",
-            "NIM": "{:.2f}%",
+            "ROA": "{:.2f}%", 
+            "NIM": "{:.2f}%", 
             "NPL_Ratio": "{:.2f}%",
             "CIR": "{:.2f}%"
         })
-
+    
     st.dataframe(styled_df, use_container_width=True, height=500)
