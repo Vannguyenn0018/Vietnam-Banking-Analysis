@@ -6,46 +6,64 @@ import numpy as np
 
 # --- 1. CẤU HÌNH TRANG WEB ---
 st.set_page_config(
-    page_title="VietBank Dashboard",
+    page_title="VietBank AI Dashboard",
     page_icon="🏦",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS để giao diện nhìn ngầu hơn (Dark Sidebar, Light Main)
+# Custom CSS để giao diện nhìn sáng sủa, hiện đại hơn (Light Theme)
 st.markdown("""
 <style>
-    /* Chỉnh màu sidebar */
+    /* Chỉnh màu nền sidebar sang trắng/xám nhạt tinh tế */
     [data-testid="stSidebar"] {
-        background-color: #0f172a;
-        color: #f8fafc;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
     }
-    [data-testid="stSidebar"] * {
-        color: #f8fafc;
+    
+    /* Màu chữ mặc định trong sidebar */
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] div, 
+    [data-testid="stSidebar"] label, 
+    [data-testid="stSidebar"] span {
+        color: #334155 !important;
+        font-weight: 500;
     }
-    /* Chỉnh màu nút radio/select trong sidebar */
-    .stRadio > div > label > div > div {
-        color: #f8fafc !important;
+    
+    /* Tiêu đề VietBank AI trong sidebar */
+    [data-testid="stSidebar"] h2 {
+        color: #4f46e5 !important; /* Màu xanh Indigo */
+        font-weight: 800;
+        font-size: 1.8rem;
     }
+    
+    /* Làm mờ thanh chia (divider) */
+    [data-testid="stSidebar"] hr {
+        border-bottom-color: #f1f5f9;
+        margin: 1.5rem 0;
+    }
+    
     /* Chỉnh title chính */
     .main-title {
-        font-size: 2.5rem;
-        font-weight: 700;
+        font-size: 2.4rem;
+        font-weight: 800;
         color: #1e293b;
         margin-bottom: 0px;
+        letter-spacing: -0.02em;
     }
     .sub-title {
         color: #64748b;
         font-weight: 500;
         margin-bottom: 30px;
     }
+    
     /* Highlight text trong tab */
     .metric-card {
         background-color: white;
         border: 1px solid #e2e8f0;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -58,7 +76,7 @@ def load_data():
         df = pd.read_csv('processed_banking_data.csv')
         # Chuyển đổi một số cột quan trọng cho chắc chắn
         df['thoi_gian_nam_quy'] = df['thoi_gian_nam_quy'].astype(int)
-
+        
         # Nếu data có nhiều NaN, fill tạm bằng 0 hoặc drop
         df = df.dropna(subset=['Cluster', 'ROA', 'NPL_Ratio', 'NIM'])
         df['Cluster'] = df['Cluster'].astype(int).astype(str) # Ép kiểu string để Plotly nhận diện là Category
@@ -74,25 +92,25 @@ df = load_data()
 with st.sidebar:
     st.markdown("## 📊 VietBank AI.")
     st.markdown("---")
-
-    st.markdown("**WORKSPACE**")
+    
+    st.markdown("🏢 **WORKSPACE**")
     active_tab = st.radio(
         "Chọn chế độ phân tích:",
         ("Phân Tích Cụm (K-Means)", "Tương Quan Vĩ Mô (OLS)", "Deep Dive Dataset"),
         label_visibility="collapsed"
     )
-
+    
     st.markdown("---")
-    st.markdown("**⚙️ MODEL PARAMETERS**")
-
+    st.markdown("⚙️ **MODEL PARAMETERS**")
+    
     # Lọc Năm
     min_year, max_year = int(df['thoi_gian_nam_quy'].min()), int(df['thoi_gian_nam_quy'].max())
     selected_years = st.slider("Giai đoạn phân tích (Năm):", min_value=min_year, max_value=max_year, value=(min_year, max_year))
-
+    
     # Lọc Cụm
     all_clusters = sorted(df['Cluster'].unique().tolist())
     selected_clusters = st.multiselect("Lọc theo Cụm:", options=all_clusters, default=all_clusters)
-
+    
     st.markdown("---")
     st.success("✅ Data pipeline processed successfully.")
 
@@ -113,29 +131,26 @@ st.markdown('<p class="sub-title">Based on OLS Regression & K-Means output (2020
 
 # --- TAB 1: CLUSTERING ANALYSIS ---
 if active_tab == "Phân Tích Cụm (K-Means)":
-
+    
     col1, col2 = st.columns([2, 1])
-
+    
     with col1:
         st.markdown("**Phân bố Ngân hàng theo Cụm (K-Means)**")
-        st.caption("Trục X: Quy mô tài sản | Trục Y: Lợi nhuận (ROA) | Kích thước: Rủi ro nợ xấu (NPL)")
-
-        # Lấy tên cột Asset thực tế (vì code của cậu đang map qua biến động)
-        # Giả sử cột Asset là cột đầu tiên sau ticker và năm (hoặc ta tính lại giá trị trung bình)
+        st.caption("Trục X: Lợi nhuận biên (NIM) | Trục Y: Lợi nhuận (ROA) | Kích thước: Rủi ro nợ xấu (NPL)")
+        
         # Để an toàn, lấy điểm trung bình của từng ngân hàng trong giai đoạn được chọn
         df_scatter = filtered_df.groupby(['ticker', 'Cluster']).agg({
             'ROA': 'mean',
             'NPL_Ratio': 'mean',
             'NIM': 'mean'
-            # Cần thêm Total_Assets nếu muốn x-axis chính xác, ở đây dùng NIM làm ví dụ thay thế nếu cột bị sai tên
         }).reset_index()
-
+        
         # Plotly Scatter
         fig_scatter = px.scatter(
-            df_scatter,
-            x="NIM", # Thay bằng cột Asset nếu cậu có tên cột rõ ràng
-            y="ROA",
-            size="NPL_Ratio",
+            df_scatter, 
+            x="NIM", 
+            y="ROA", 
+            size="NPL_Ratio", 
             color="Cluster",
             hover_name="ticker",
             color_discrete_sequence=['#10b981', '#f59e0b', '#ef4444'], # Xanh, Cam, Đỏ
@@ -148,17 +163,16 @@ if active_tab == "Phân Tích Cụm (K-Means)":
     with col2:
         st.markdown("**Hồ sơ Cụm (Cluster DNA)**")
         st.caption("Mức độ hoàn thiện các chỉ số trung bình")
-
+        
         # Tính trung bình các KPI theo cụm
         radar_df = filtered_df.groupby('Cluster')[['ROA', 'NIM', 'CIR', 'NPL_Ratio']].mean().reset_index()
-
+        
         # Chuẩn hóa (Normalize) nhẹ để vẽ Radar (chuyển về scale 0-100)
-        # Đây là code giả lập logic vẽ radar
         categories = ['ROA', 'NIM', 'Hiệu quả Phí (CIR đảo)', 'Chất lượng TS (NPL đảo)']
-
+        
         fig_radar = go.Figure()
         colors = {'0': '#10b981', '1': '#f59e0b', '2': '#ef4444'}
-
+        
         for index, row in radar_df.iterrows():
             cluster_id = row['Cluster']
             if cluster_id in selected_clusters:
@@ -172,7 +186,7 @@ if active_tab == "Phân Tích Cụm (K-Means)":
                 # Đóng vòng radar
                 values.append(values[0])
                 cat_closed = categories + [categories[0]]
-
+                
                 fig_radar.add_trace(go.Scatterpolar(
                     r=values,
                     theta=cat_closed,
@@ -187,16 +201,16 @@ if active_tab == "Phân Tích Cụm (K-Means)":
             margin=dict(l=40, r=40, t=30, b=0)
         )
         st.plotly_chart(fig_radar, use_container_width=True)
-
-        st.info("💡 **Insight Model:** Cụm 0 thường cân bằng tốt nhất giữa TS, Lợi nhuận và Rủi ro. Cụm 2 gặp vấn đề về NPL.")
+        
+        st.info("💡 **Insight Model:** Cụm 0 thường cân bằng tốt nhất giữa Lợi nhuận và Rủi ro. Cụm 2 gặp vấn đề về NPL.")
 
 # --- TAB 2: MACRO CORRELATION ---
 elif active_tab == "Tương Quan Vĩ Mô (OLS)":
-
+    
     col1, col2 = st.columns([1, 2])
-
+    
     with col1:
-        st.markdown("<div class='metric-card' style='background:#1e1b4b; color:white;'>", unsafe_allow_html=True)
+        st.markdown("<div class='metric-card' style='background:#4f46e5; color:white;'>", unsafe_allow_html=True)
         st.markdown("### 📈 Kết quả Hồi quy (OLS Model)")
         st.markdown("---")
         st.markdown("🟢 **P-value < 0.05:** Tăng trưởng GDP có tương quan dương mạnh mẽ với ROA.")
@@ -206,7 +220,7 @@ elif active_tab == "Tương Quan Vĩ Mô (OLS)":
 
     with col2:
         st.markdown("**Tác động GDP lên ROA & NPL hệ thống**")
-
+        
         # Gom nhóm theo năm
         macro_df = df[df['thoi_gian_nam_quy'].between(selected_years[0], selected_years[1])]
         sys_trend = macro_df.groupby('thoi_gian_nam_quy').agg({
@@ -214,19 +228,19 @@ elif active_tab == "Tương Quan Vĩ Mô (OLS)":
             'ROA': 'mean',
             'NPL_Ratio': 'mean'
         }).reset_index()
-
+        
         # Plotly Composed Chart (Bar + Line)
         fig_macro = go.Figure()
-
+        
         # Cột GDP
         fig_macro.add_trace(go.Bar(
             x=sys_trend['thoi_gian_nam_quy'],
             y=sys_trend['gdp_yoy_growth'],
             name='GDP Growth (%)',
-            marker_color='#cbd5e1',
+            marker_color='#e2e8f0',
             yaxis='y1'
         ))
-
+        
         # Line ROA
         fig_macro.add_trace(go.Scatter(
             x=sys_trend['thoi_gian_nam_quy'],
@@ -237,7 +251,7 @@ elif active_tab == "Tương Quan Vĩ Mô (OLS)":
             line=dict(width=3),
             yaxis='y2'
         ))
-
+        
         # Line NPL
         fig_macro.add_trace(go.Scatter(
             x=sys_trend['thoi_gian_nam_quy'],
@@ -248,7 +262,7 @@ elif active_tab == "Tương Quan Vĩ Mô (OLS)":
             line=dict(width=3),
             yaxis='y2'
         ))
-
+        
         fig_macro.update_layout(
             yaxis=dict(title='GDP Growth', side='left', showgrid=False),
             yaxis2=dict(title='KPIs (%)', side='right', overlaying='y', showgrid=False),
@@ -261,7 +275,7 @@ elif active_tab == "Tương Quan Vĩ Mô (OLS)":
 # --- TAB 3: DATASET & HEATMAP ---
 elif active_tab == "Deep Dive Dataset":
     st.markdown("**Dataset Phân Tích (Cảnh báo tự động)**")
-
+    
     # Lấy data trung bình cho từng ngân hàng trong khoảng thời gian đã chọn
     heatmap_data = filtered_df.groupby(['ticker', 'Cluster']).agg({
         'ROA': 'mean',
@@ -269,11 +283,11 @@ elif active_tab == "Deep Dive Dataset":
         'NPL_Ratio': 'mean',
         'CIR': 'mean'
     }).reset_index()
-
+    
     # Nhân 100 cho dễ nhìn
     heatmap_data['NPL_Ratio'] = heatmap_data['NPL_Ratio'] * 100
     heatmap_data['CIR'] = heatmap_data['CIR'] * 100
-
+    
     # Format lại dataframe để hiển thị đẹp bằng Pandas Styler
     def color_risk(val, metric):
         if pd.isna(val): return ''
