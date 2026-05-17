@@ -1,10 +1,4 @@
 streamlit
 pandas
-numpy
-yfinance
-scikit-learn
-matplotlib
-seaborn
 plotly
-scipy
-statsmodels
+numpy
