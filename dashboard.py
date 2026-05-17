@@ -32,8 +32,23 @@ st.markdown("""
         background-color: #fff1f2; border-left: 4px solid #e11d48;
         padding: 1rem 1.5rem; border-radius: 0 0.5rem 0.5rem 0; margin-bottom: 1.5rem;
     }
-    .kpi-title { font-size: 0.9rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;}
-    .kpi-value { font-size: 1.8rem; font-weight: 800; color: #0f172a; }
+    
+    /* Thiết kế Fancy KPI Cards (Có hiệu ứng Hover) */
+    .kpi-container {
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 24px 20px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+        border-left: 8px solid #7ba0c0; /* Màu viền mặc định giống trong ảnh */
+        transition: all 0.3s ease; /* Hiệu ứng chuyển động mượt */
+        margin-bottom: 1rem;
+    }
+    .kpi-container:hover {
+        transform: translateY(-6px); /* Nổi lên khi rà chuột */
+        box-shadow: 0 12px 20px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); /* Bóng đậm hơn */
+    }
+    .kpi-title { font-size: 0.95rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem; letter-spacing: 0.02em;}
+    .kpi-value { font-size: 2.2rem; font-weight: 800; color: #0f172a; line-height: 1.2;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -116,10 +131,11 @@ if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
     sys_nim = df['NIM'].mean()
     sys_cir = df['CIR'].mean() * 100
     
-    c1.markdown(f"<div class='kpi-title'>ROA Hệ Thống</div><div class='kpi-value'>{sys_roa:.2f}%</div>", unsafe_allow_html=True)
-    c2.markdown(f"<div class='kpi-title'>NIM Hệ Thống</div><div class='kpi-value'>{sys_nim:.2f}%</div>", unsafe_allow_html=True)
-    c3.markdown(f"<div class='kpi-title'>Tỷ lệ Nợ Xấu (NPL)</div><div class='kpi-value' style='color:#e11d48;'>{sys_npl:.2f}%</div>", unsafe_allow_html=True)
-    c4.markdown(f"<div class='kpi-title'>Chi phí h.động (CIR)</div><div class='kpi-value'>{sys_cir:.1f}%</div>", unsafe_allow_html=True)
+    # Render các thẻ KPI với màu viền trái (border-left-color) được tùy chỉnh theo chỉ số
+    c1.markdown(f"<div class='kpi-container' style='border-left-color: #3b82f6;'><div class='kpi-title'>ROA Hệ Thống</div><div class='kpi-value'>{sys_roa:.2f}%</div></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='kpi-container' style='border-left-color: #10b981;'><div class='kpi-title'>NIM Hệ Thống</div><div class='kpi-value'>{sys_nim:.2f}%</div></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='kpi-container' style='border-left-color: #e11d48;'><div class='kpi-title'>Tỷ lệ Nợ Xấu (NPL)</div><div class='kpi-value' style='color:#e11d48;'>{sys_npl:.2f}%</div></div>", unsafe_allow_html=True)
+    c4.markdown(f"<div class='kpi-container' style='border-left-color: #8b5cf6;'><div class='kpi-title'>Chi phí h.động (CIR)</div><div class='kpi-value'>{sys_cir:.1f}%</div></div>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Charts
@@ -127,6 +143,7 @@ if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
     
     with col_a:
         st.markdown("**1.1. So sánh hiệu quả theo Nhóm Quy Mô (Clusters)**")
+        # Sử dụng numeric_only=True để tránh lỗi nếu có cột không phải số
         cluster_kpi = df.groupby('Cluster')[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean().reset_index()
         cluster_kpi['NPL_Ratio'] *= 100
         cluster_kpi['CIR'] *= 100
@@ -195,11 +212,15 @@ elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
         st.markdown("**2.2. Nhận diện các Ngân hàng vượt bão (Resilience Check)**")
         st.caption("Bubble Chart (2023-2024): Trục X (Quy mô/Asset), Trục Y (ROA), Size (CIR - Chi phí). *Bong bóng càng nhỏ càng tối ưu phí.*")
         
-        # Filter late stage data to check resilience
-        df_late = df[df['thoi_gian_nam_quy'].isin([2023, 2024])].groupby(['ticker', 'Cluster']).mean().reset_index()
+        # Filter late stage data to check resilience, handle non-numeric gracefully
+        df_late = df[df['thoi_gian_nam_quy'].isin([2023, 2024])].groupby(['ticker', 'Cluster']).mean(numeric_only=True).reset_index()
         df_late['CIR'] *= 100
         
-        fig_bubble = px.scatter(df_late, x="Total_Assets", y="ROA", size="CIR", color="Cluster", hover_name="ticker",
+        # XỬ LÝ LỖI VALUEERROR: Plotly size attribute không cho phép giá trị âm hoặc bằng 0
+        # Nếu CIR bị âm do data lỗi, chúng ta ép mức thấp nhất của CIR_Size là 0.1 để vẽ Bubble Chart
+        df_late['CIR_Size'] = df_late['CIR'].clip(lower=0.1)
+        
+        fig_bubble = px.scatter(df_late, x="Total_Assets", y="ROA", size="CIR_Size", color="Cluster", hover_name="ticker",
                                 color_discrete_map={'0': '#10b981', '1': '#f59e0b', '2': '#e11d48'},
                                 size_max=40, labels={"Total_Assets": "Quy mô Tài sản (Nghìn tỷ)", "ROA": "ROA (%)"})
         
@@ -247,7 +268,7 @@ elif active_tab == "3. Khuyến Nghị Chiến Lược (Prescriptive)":
     st.caption("Bảng dữ liệu nhận diện ngân hàng cần Action ngay lập tức (Sort by NPL_Ratio giảm dần)")
     
     # Chuẩn bị data cho Heatmap
-    action_df = df.groupby(['ticker', 'Cluster'])[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean().reset_index()
+    action_df = df.groupby(['ticker', 'Cluster'])[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean(numeric_only=True).reset_index()
     action_df['NPL_Ratio'] *= 100
     action_df['CIR'] *= 100
     action_df = action_df.sort_values('NPL_Ratio', ascending=False)
