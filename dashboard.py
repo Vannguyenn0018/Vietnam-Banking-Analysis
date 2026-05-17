@@ -84,7 +84,7 @@ macro_data = pd.DataFrame({
 })
 
 # ==========================================
-# 3. SIDEBAR - EXECUTIVE SUMMARY (Storytelling)
+# 3. SIDEBAR - CONTROLS & STORYTELLING
 # ==========================================
 with st.sidebar:
     st.markdown("## 📊 VietBank Analysis")
@@ -94,12 +94,22 @@ with st.sidebar:
     active_tab = st.radio(
         "Navigation",
         (
-            "1. Phân Tích Mô Tả (Descriptive)", 
-            "2. Chẩn Đoán Nguyên Nhân (Diagnostic)", 
-            "3. Khuyến Nghị Chiến Lược (Prescriptive)"
+            "1. Phân Tích Mô Tả", 
+            "2. Chẩn Đoán Nguyên Nhân", 
+            "3. Khuyến Nghị Chiến Lược"
         ),
         label_visibility="collapsed"
     )
+    
+    st.markdown("---")
+    
+    # THÊM LẠI BỘ LỌC TƯƠNG TÁC TẠI ĐÂY
+    st.markdown("### ⚙️ BỘ LỌC DỮ LIỆU")
+    min_year, max_year = int(df['thoi_gian_nam_quy'].min()), int(df['thoi_gian_nam_quy'].max())
+    selected_years = st.slider("Giai đoạn phân tích (Năm):", min_value=min_year, max_value=max_year, value=(min_year, max_year))
+    
+    all_clusters = sorted(df['Cluster'].unique().tolist())
+    selected_clusters = st.multiselect("Lọc theo Cụm:", options=all_clusters, default=all_clusters)
     
     st.markdown("---")
     st.markdown("### 💡 EXECUTIVE SUMMARY")
@@ -107,6 +117,19 @@ with st.sidebar:
     
     st.markdown("---")
     st.caption("Data source: Hợp nhất BCTC & Vĩ Mô 2020-2024")
+
+# ==========================================
+# ÁP DỤNG BỘ LỌC (FILTERING LOGIC)
+# ==========================================
+filtered_df = df[
+    (df['thoi_gian_nam_quy'].between(selected_years[0], selected_years[1])) &
+    (df['Cluster'].isin(selected_clusters))
+]
+
+# Kiểm tra nếu data trống sau khi lọc
+if filtered_df.empty:
+    st.warning("⚠️ Không có dữ liệu cho các bộ lọc bạn vừa chọn. Vui lòng nới lỏng bộ lọc.")
+    st.stop()
 
 # ==========================================
 # MAIN LAYOUT
@@ -117,19 +140,19 @@ st.markdown('<p class="sub-header">Phân tích chuyên sâu Giai đoạn 2020 - 
 # ==============================================================================
 # TAB 1: DESCRIPTIVE ANALYTICS - BỨC TRANH TOÀN CẢNH
 # ==============================================================================
-if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
+if active_tab == "1. Phân Tích Mô Tả":
     st.markdown("""
     <div class="insight-box">
         <strong>Tóm tắt (Findings):</strong> Dù trải qua 2 năm đại dịch (2020-2021), tổng quy mô tài sản hệ thống vẫn duy trì đà tăng. Tuy nhiên, sự phân hóa chất lượng tài sản (NPL) bắt đầu lộ rõ vào cuối 2022. Thuật toán K-Means đã bóc tách hệ thống thành 3 nhóm năng lực rõ rệt.
     </div>
     """, unsafe_allow_html=True)
 
-    # Metrics
+    # Metrics (Dùng filtered_df)
     c1, c2, c3, c4 = st.columns(4)
-    sys_roa = df['ROA'].mean()
-    sys_npl = df['NPL_Ratio'].mean() * 100
-    sys_nim = df['NIM'].mean()
-    sys_cir = df['CIR'].mean() * 100
+    sys_roa = filtered_df['ROA'].mean()
+    sys_npl = filtered_df['NPL_Ratio'].mean() * 100
+    sys_nim = filtered_df['NIM'].mean()
+    sys_cir = filtered_df['CIR'].mean() * 100
     
     # Render các thẻ KPI với màu viền trái (border-left-color) được tùy chỉnh theo chỉ số
     c1.markdown(f"<div class='kpi-container' style='border-left-color: #3b82f6;'><div class='kpi-title'>ROA Hệ Thống</div><div class='kpi-value'>{sys_roa:.2f}%</div></div>", unsafe_allow_html=True)
@@ -143,8 +166,8 @@ if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
     
     with col_a:
         st.markdown("**1.1. So sánh hiệu quả theo Nhóm Quy Mô (Clusters)**")
-        # Sử dụng numeric_only=True để tránh lỗi nếu có cột không phải số
-        cluster_kpi = df.groupby('Cluster')[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean().reset_index()
+        # Sử dụng numeric_only=True để tránh lỗi nếu có cột không phải số (Dùng filtered_df)
+        cluster_kpi = filtered_df.groupby('Cluster')[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean(numeric_only=True).reset_index()
         cluster_kpi['NPL_Ratio'] *= 100
         cluster_kpi['CIR'] *= 100
         
@@ -161,15 +184,15 @@ if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
             cat_closed = categories + [categories[0]]
             
             fig_radar.add_trace(go.Scatterpolar(
-                r=r_vals, theta=cat_closed, fill='toself', name=names[cid],
-                line_color=colors[cid], opacity=0.7
+                r=r_vals, theta=cat_closed, fill='toself', name=names.get(cid, f'Cụm {cid}'),
+                line_color=colors.get(cid, '#3b82f6'), opacity=0.7
             ))
         fig_radar.update_layout(polar=dict(radialaxis=dict(visible=False)), margin=dict(t=20, b=20, l=40, r=40))
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with col_b:
-        st.markdown("**1.2. Xu hướng Nợ Xấu (NPL) 2020-2024**")
-        npl_trend = df.groupby(['thoi_gian_nam_quy', 'Cluster'])['NPL_Ratio'].mean().reset_index()
+        st.markdown("**1.2. Xu hướng Nợ Xấu (NPL) Hệ thống**")
+        npl_trend = filtered_df.groupby(['thoi_gian_nam_quy', 'Cluster'])['NPL_Ratio'].mean().reset_index()
         npl_trend['NPL_Ratio'] *= 100
         
         fig_npl = px.line(npl_trend, x="thoi_gian_nam_quy", y="NPL_Ratio", color="Cluster",
@@ -184,7 +207,7 @@ if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
 # ==============================================================================
 # TAB 2: DIAGNOSTIC ANALYTICS - CHẨN ĐOÁN NGUYÊN NHÂN
 # ==============================================================================
-elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
+elif active_tab == "2. Chẩn Đoán Nguyên Nhân":
     st.markdown("""
     <div class="insight-box">
         <strong>Phân tích Nguyên nhân (Findings):</strong> Sự biến động của Hệ thống bị chi phối mạnh bởi Cú sốc Lãi suất (2022). Mô hình OLS cho thấy độ trễ (lag) 1 năm: Lãi suất tăng và tín dụng siết chặt trong 2022 dẫn đến NPL bùng nổ và ROA suy giảm mạnh vào 2023 ở các ngân hàng có thanh khoản yếu.
@@ -197,12 +220,15 @@ elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
         st.markdown("**2.1. Tác động của Lãi suất & GDP lên Nợ xấu hệ thống**")
         fig_macro = make_subplots(specs=[[{"secondary_y": True}]])
         
-        # Thêm GDP & NPL hệ thống
-        sys_npl_year = df.groupby('thoi_gian_nam_quy')['NPL_Ratio'].mean().reset_index()
+        # Thêm GDP & NPL hệ thống (Dùng filtered_df)
+        sys_npl_year = filtered_df.groupby('thoi_gian_nam_quy')['NPL_Ratio'].mean().reset_index()
         sys_npl_year['NPL_Ratio'] *= 100
         
-        fig_macro.add_trace(go.Bar(x=macro_data['Year'], y=macro_data['GDP_Growth'], name="Tăng trưởng GDP (%)", marker_color="#cbd5e1"), secondary_y=False)
-        fig_macro.add_trace(go.Scatter(x=macro_data['Year'], y=macro_data['Interest_Rate'], name="Lãi suất điều hành (%)", mode="lines+markers", line=dict(color="#f59e0b", width=3, dash='dot')), secondary_y=True)
+        # Lọc Macro data theo năm đã chọn
+        macro_data_filtered = macro_data[(macro_data['Year'] >= selected_years[0]) & (macro_data['Year'] <= selected_years[1])]
+        
+        fig_macro.add_trace(go.Bar(x=macro_data_filtered['Year'], y=macro_data_filtered['GDP_Growth'], name="Tăng trưởng GDP (%)", marker_color="#cbd5e1"), secondary_y=False)
+        fig_macro.add_trace(go.Scatter(x=macro_data_filtered['Year'], y=macro_data_filtered['Interest_Rate'], name="Lãi suất điều hành (%)", mode="lines+markers", line=dict(color="#f59e0b", width=3, dash='dot')), secondary_y=True)
         fig_macro.add_trace(go.Scatter(x=sys_npl_year['thoi_gian_nam_quy'], y=sys_npl_year['NPL_Ratio'], name="NPL Hệ thống (%)", mode="lines+markers", line=dict(color="#e11d48", width=3)), secondary_y=True)
         
         fig_macro.update_layout(margin=dict(t=20, b=20), xaxis=dict(dtick=1), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
@@ -210,14 +236,13 @@ elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
 
     with c2:
         st.markdown("**2.2. Nhận diện các Ngân hàng vượt bão (Resilience Check)**")
-        st.caption("Bubble Chart (2023-2024): Trục X (Quy mô/Asset), Trục Y (ROA), Size (CIR - Chi phí). *Bong bóng càng nhỏ càng tối ưu phí.*")
+        st.caption("Bubble Chart: Trục X (Quy mô/Asset), Trục Y (ROA), Size (CIR - Chi phí). *Bong bóng càng nhỏ càng tối ưu phí.*")
         
-        # Filter late stage data to check resilience, handle non-numeric gracefully
-        df_late = df[df['thoi_gian_nam_quy'].isin([2023, 2024])].groupby(['ticker', 'Cluster']).mean(numeric_only=True).reset_index()
+        # Nhóm theo ngân hàng dựa trên khung thời gian đã chọn (filtered_df)
+        df_late = filtered_df.groupby(['ticker', 'Cluster']).mean(numeric_only=True).reset_index()
         df_late['CIR'] *= 100
         
         # XỬ LÝ LỖI VALUEERROR: Plotly size attribute không cho phép giá trị âm hoặc bằng 0
-        # Nếu CIR bị âm do data lỗi, chúng ta ép mức thấp nhất của CIR_Size là 0.1 để vẽ Bubble Chart
         df_late['CIR_Size'] = df_late['CIR'].clip(lower=0.1)
         
         fig_bubble = px.scatter(df_late, x="Total_Assets", y="ROA", size="CIR_Size", color="Cluster", hover_name="ticker",
@@ -231,7 +256,7 @@ elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
 # ==============================================================================
 # TAB 3: PRESCRIPTIVE ANALYTICS - KHUYẾN NGHỊ CHIẾN LƯỢC
 # ==============================================================================
-elif active_tab == "3. Khuyến Nghị Chiến Lược (Prescriptive)":
+elif active_tab == "3. Khuyến Nghị Chiến Lược":
     
     st.markdown("### 🎯 Đề xuất Chiến lược Dựa trên Data (Data-driven Prescriptions)")
     
@@ -265,10 +290,10 @@ elif active_tab == "3. Khuyến Nghị Chiến Lược (Prescriptive)":
         
     st.markdown("---")
     st.markdown("### 🗂️ Target List (Actionable Heatmap)")
-    st.caption("Bảng dữ liệu nhận diện ngân hàng cần Action ngay lập tức (Sort by NPL_Ratio giảm dần)")
+    st.caption("Bảng dữ liệu nhận diện ngân hàng cần Action ngay lập tức (Dựa trên khung thời gian và cụm đã lọc)")
     
-    # Chuẩn bị data cho Heatmap
-    action_df = df.groupby(['ticker', 'Cluster'])[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean(numeric_only=True).reset_index()
+    # Chuẩn bị data cho Heatmap (Dùng filtered_df)
+    action_df = filtered_df.groupby(['ticker', 'Cluster'])[['ROA', 'NIM', 'NPL_Ratio', 'CIR']].mean(numeric_only=True).reset_index()
     action_df['NPL_Ratio'] *= 100
     action_df['CIR'] *= 100
     action_df = action_df.sort_values('NPL_Ratio', ascending=False)
