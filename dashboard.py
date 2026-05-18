@@ -94,9 +94,9 @@ with st.sidebar:
     active_tab = st.radio(
         "Navigation",
         (
-            "1. Phân Tích Mô Tả", 
-            "2. Chẩn Đoán Nguyên Nhân", 
-            "3. Khuyến Nghị Chiến Lược"
+            "1. Phân Tích Mô Tả (Descriptive)", 
+            "2. Chẩn Đoán Nguyên Nhân (Diagnostic)", 
+            "3. Khuyến Nghị Chiến Lược (Prescriptive)"
         ),
         label_visibility="collapsed"
     )
@@ -140,7 +140,7 @@ st.markdown('<p class="sub-header">Phân tích chuyên sâu Giai đoạn 2020 - 
 # ==============================================================================
 # TAB 1: DESCRIPTIVE ANALYTICS - BỨC TRANH TOÀN CẢNH
 # ==============================================================================
-if active_tab == "1. Phân Tích Mô Tả":
+if active_tab == "1. Phân Tích Mô Tả (Descriptive)":
     st.markdown("""
     <div class="insight-box">
         <strong>Tóm tắt (Findings):</strong> Dù trải qua 2 năm đại dịch (2020-2021), tổng quy mô tài sản hệ thống vẫn duy trì đà tăng. Tuy nhiên, sự phân hóa chất lượng tài sản (NPL) bắt đầu lộ rõ vào cuối 2022. Thuật toán K-Means đã bóc tách hệ thống thành 3 nhóm năng lực rõ rệt.
@@ -172,7 +172,8 @@ if active_tab == "1. Phân Tích Mô Tả":
         cluster_kpi['CIR'] *= 100
         
         fig_radar = go.Figure()
-        categories = ['Sinh lời (ROA)', 'Biên lãi (NIM)', 'Tối ưu phí (Đảo CIR)', 'Chất lượng TS (Đảo NPL)']
+        # Cập nhật tên trục để hiện rõ hệ số nhân (Scale) giống thiết kế mẫu
+        categories = ['ROA (×40)', 'NIM (×15)', 'CIR (Đảo ngược)', 'NPL (Đảo ngược)']
         colors = {'0': '#10b981', '1': '#f59e0b', '2': '#e11d48'}
         names = {'0': 'Cụm 0 (Dẫn đầu)', '1': 'Cụm 1 (Chấp nhận rủi ro)', '2': 'Cụm 2 (Kém hiệu quả)'}
         
@@ -183,11 +184,48 @@ if active_tab == "1. Phân Tích Mô Tả":
             r_vals.append(r_vals[0])
             cat_closed = categories + [categories[0]]
             
+            # Cập nhật marker (dấu chấm tròn) và làm dày đường viền (line)
             fig_radar.add_trace(go.Scatterpolar(
-                r=r_vals, theta=cat_closed, fill='toself', name=names.get(cid, f'Cụm {cid}'),
-                line_color=colors.get(cid, '#3b82f6'), opacity=0.7
+                r=r_vals, 
+                theta=cat_closed, 
+                fill='toself', 
+                name=names.get(cid, f'Cụm {cid}'),
+                line=dict(color=colors.get(cid, '#3b82f6'), width=3),
+                marker=dict(color=colors.get(cid, '#3b82f6'), size=8, symbol='circle'),
+                fillcolor=colors.get(cid, '#3b82f6'),
+                opacity=0.5
             ))
-        fig_radar.update_layout(polar=dict(radialaxis=dict(visible=False)), margin=dict(t=20, b=20, l=40, r=40))
+            
+        # Cấu hình lại layout để biến hình tròn thành mạng nhện (Linear Grid)
+        fig_radar.update_layout(
+            polar=dict(
+                gridshape='linear', # Đổi hình tròn mặc định thành mạng nhện (đa giác)
+                radialaxis=dict(
+                    visible=True,
+                    showticklabels=False, # Ẩn các con số trên lưới
+                    showline=False,
+                    gridcolor='#e2e8f0',  # Màu lưới xám nhạt
+                    range=[0, 110]        # Cố định khung trục để không bị bóp méo
+                ),
+                angularaxis=dict(
+                    gridcolor='#e2e8f0',
+                    linecolor='#e2e8f0',
+                    tickfont=dict(size=12, color='#64748b')
+                ),
+                bgcolor='#fafafa' # Màu nền mạng nhện
+            ),
+            margin=dict(t=60, b=20, l=40, r=40),
+            legend=dict(
+                orientation="h",  # Chuyển legend sang nằm ngang
+                yanchor="bottom",
+                y=1.15,           # Đẩy legend lên trên cùng biểu đồ
+                xanchor="center",
+                x=0.5,
+                font=dict(size=12, color='#475569')
+            ),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
+        )
         st.plotly_chart(fig_radar, use_container_width=True)
 
     with col_b:
@@ -207,7 +245,7 @@ if active_tab == "1. Phân Tích Mô Tả":
 # ==============================================================================
 # TAB 2: DIAGNOSTIC ANALYTICS - CHẨN ĐOÁN NGUYÊN NHÂN
 # ==============================================================================
-elif active_tab == "2. Chẩn Đoán Nguyên Nhân":
+elif active_tab == "2. Chẩn Đoán Nguyên Nhân (Diagnostic)":
     st.markdown("""
     <div class="insight-box">
         <strong>Phân tích Nguyên nhân (Findings):</strong> Sự biến động của Hệ thống bị chi phối mạnh bởi Cú sốc Lãi suất (2022). Mô hình OLS cho thấy độ trễ (lag) 1 năm: Lãi suất tăng và tín dụng siết chặt trong 2022 dẫn đến NPL bùng nổ và ROA suy giảm mạnh vào 2023 ở các ngân hàng có thanh khoản yếu.
@@ -256,7 +294,7 @@ elif active_tab == "2. Chẩn Đoán Nguyên Nhân":
 # ==============================================================================
 # TAB 3: PRESCRIPTIVE ANALYTICS - KHUYẾN NGHỊ CHIẾN LƯỢC
 # ==============================================================================
-elif active_tab == "3. Khuyến Nghị Chiến Lược":
+elif active_tab == "3. Khuyến Nghị Chiến Lược (Prescriptive)":
     
     st.markdown("### 🎯 Đề xuất Chiến lược Dựa trên Data (Data-driven Prescriptions)")
     
