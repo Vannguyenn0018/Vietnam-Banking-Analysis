@@ -4,7 +4,7 @@
 Dự án này được thực hiện trong khuôn khổ Vòng 2 cuộc thi G'CONTEST 2026. Mục tiêu chính là phân tích, đánh giá hiệu quả hoạt động và định vị tiềm năng tăng trưởng của hệ thống ngân hàng Việt Nam trong giai đoạn 5 năm đầy biến động từ 2020 đến 2024. Bằng việc ứng dụng các phương pháp phân tích dữ liệu nâng cao, dự án cung cấp góc nhìn đa chiều về rủi ro, khả năng sinh lời và đưa ra các đề xuất chiến lược.
 
 Bạn có thể xem báo cáo phân tích chi tiết tại:
-👉 [Truy cập Dashboard tại đây]((https://drive.google.com/file/d/1Dcf2V-U199pacO_lOISc_EBid-09_Hh8/view?usp=drive_link))
+👉 [Truy cập Dashboard tại đây](https://drive.google.com/file/d/1Dcf2V-U199pacO_lOISc_EBid-09_Hh8/view?usp=sharing)
 
 ## 📊 Mô tả Dữ liệu
 * **Quy mô:** 27 Ngân hàng Thương mại tại Việt Nam.
